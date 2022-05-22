@@ -105,6 +105,6 @@ export class DatabaseEngine {
 
     const databasePath = await this.getOrCreateDatabasePath()
 
-    return path.resolve(databasePath, collectionName)
+    return path.resolve(databasePath, `${collectionName}.bin`)
   }
 }

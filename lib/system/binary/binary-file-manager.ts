@@ -13,7 +13,8 @@ export class BinaryFileManager<SchemaType> {
   protected async writeFile(filePath: string, data: SchemaType[]) {
     return new Promise<void>((resolve, reject) => {
       const stream = fs.createWriteStream(filePath, STREAM_OPTIONS)
-      const buffer = Buffer.from(JSON.stringify(data), BINARY)
+      const dataString = JSON.stringify(data)
+      const buffer = Buffer.from(dataString, BINARY)
       stream.write(buffer, BINARY, error => {
         if (error) {
           return reject(error)

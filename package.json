@@ -1,0 +1,21 @@
+{
+  "name": "bitgeirk",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "tmp:start": "esno tmp/test.ts",
+    "dev:tmp:start": "esno tmp/test.ts"
+  },
+  "dependencies": {
+    "esno": "^0.14.1",
+    "nanoid": "^3.3.4",
+    "piscina": "^3.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.31",
+    "@types/parquetjs": "^0.10.3",
+    "@types/signale": "^1.4.4",
+    "nodemon": "^2.0.16"
+  }
+}

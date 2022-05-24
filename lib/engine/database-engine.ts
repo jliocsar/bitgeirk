@@ -4,7 +4,6 @@ import fs from 'node:fs/promises'
 import Piscina from 'piscina'
 import { nanoid } from 'nanoid'
 
-import { pathExists } from '~/system'
 import { BinaryTableManager } from '~/system/binary'
 
 import type {
@@ -85,7 +84,9 @@ export class DatabaseEngine {
   }
 
   private async getOrCreateDatabasePath() {
-    const databasePathExists = await pathExists(this.configuration.databaseName)
+    const databasePathExists = await this.pathExists(
+      this.configuration.databaseName,
+    )
 
     if (!databasePathExists) {
       await fs.mkdir(this.configuration.databaseName, {
@@ -106,5 +107,14 @@ export class DatabaseEngine {
     const databasePath = await this.getOrCreateDatabasePath()
 
     return path.resolve(databasePath, `${collectionName}.bin`)
+  }
+
+  private async pathExists(testPath: string) {
+    try {
+      await fs.access(testPath)
+      return true
+    } catch {
+      return false
+    }
   }
 }

@@ -22,9 +22,9 @@ export class BinaryTableManager<
 
   async readRows() {
     const rows = await this.readFile(this.configuration.filePath)
-    const parsedRows: SchemaType[] = JSON.parse(rows, (key, value) =>
-      key === 'data' ? JSON.parse(value) : value,
-    )
+    const parsedRows: SchemaType[] = rows.map(row => ({
+      ...row,
+    }))
 
     return parsedRows
   }

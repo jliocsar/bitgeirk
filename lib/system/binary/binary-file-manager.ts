@@ -1,45 +1,51 @@
-import fs from 'node:fs'
-import asyncFs from 'node:fs/promises'
+import BinaryFile from 'binary-file'
 
-import { pathExists } from '../system.utils'
-
-const BINARY = 'binary'
-const DEFAULT_EMPTY_FILE_VALUE = '[]'
-const STREAM_OPTIONS = {
-  encoding: 'binary',
-} as const
+class ParsedFileResult<DataType> {
+  constructor(readonly data: string, readonly parsedData: DataType[]) {}
+}
 
 export class BinaryFileManager<SchemaType> {
   protected async writeFile(filePath: string, data: SchemaType[]) {
-    return new Promise<void>((resolve, reject) => {
-      const stream = fs.createWriteStream(filePath, STREAM_OPTIONS)
-      const dataString = JSON.stringify(data)
-      const buffer = Buffer.from(dataString, BINARY)
-      stream.write(buffer, BINARY, error => {
-        if (error) {
-          return reject(error)
-        }
-        resolve()
-      })
-    })
+    const file = this.getReadAndAppendBinaryFile(filePath)
+
+    await file.open()
+
+    const { parsedData: parsedPreviousData } = await this.getParsedFileData(
+      file,
+    )
+    const updatedData = parsedPreviousData
+      ? [...parsedPreviousData, ...data]
+      : data
+    const updatedDataString = JSON.stringify(updatedData)
+
+    await file.writeString(updatedDataString)
+    await file.close()
+
+    return updatedData
   }
 
-  protected async readFile(
-    filePath: string,
-    defaultInitialValue = DEFAULT_EMPTY_FILE_VALUE,
-  ) {
-    return new Promise<string>(async (resolve, reject) => {
-      const isExistingFilePath = await pathExists(filePath)
+  protected async readFile(filePath: string) {
+    const file = this.getReadAndAppendBinaryFile(filePath)
 
-      if (!isExistingFilePath) {
-        await asyncFs.writeFile(filePath, defaultInitialValue, STREAM_OPTIONS)
-      }
+    await file.open()
+    const { data, parsedData } = await this.getParsedFileData(file)
+    await file.close()
 
-      const chunks: string[] = []
-      const stream = fs.createReadStream(filePath, STREAM_OPTIONS)
-      stream.on('data', chunk => chunks.push(chunk as string))
-      stream.on('end', () => resolve(chunks.join('')))
-      stream.on('error', reject)
-    })
+    if (!data) {
+      return []
+    }
+
+    return parsedData
+  }
+
+  private async getParsedFileData(file: BinaryFile) {
+    const dataSize = await file.readUInt32()
+    const data = await file.readString(dataSize)
+    const parsedData: SchemaType[] = data ? JSON.parse(data) : []
+    return new ParsedFileResult(data, parsedData)
+  }
+
+  private getReadAndAppendBinaryFile(filePath: string) {
+    return new BinaryFile(filePath, 'a+')
   }
 }

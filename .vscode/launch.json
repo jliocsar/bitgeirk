@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "name": "esno",
+      "program": "${workspaceFolder}/tmp/test.ts",
+      "request": "launch",
+      "restart": true,
+      "runtimeExecutable": "esno",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "type": "node"
+    },
+  ]
+}

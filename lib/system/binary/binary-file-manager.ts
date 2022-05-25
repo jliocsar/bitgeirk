@@ -5,31 +5,34 @@ class ParsedFileResult<DataType> {
 }
 
 export class BinaryFileManager<SchemaType> {
-  protected async writeFile(filePath: string, data: SchemaType[]) {
-    const file = this.getReadAndAppendBinaryFile(filePath)
+  protected file: BinaryFile
 
-    await file.open()
+  constructor(filePath: string) {
+    this.file = this.getReadAndAppendBinaryFile(filePath)
+  }
 
-    const { parsedData: parsedPreviousData } = await this.getParsedFileData(
-      file,
-    )
+  async start() {
+    await this.file.open()
+  }
+
+  async stop() {
+    await this.file.close()
+  }
+
+  protected async writeToFile(data: SchemaType[]) {
+    const { parsedData: parsedPreviousData } = await this.getParsedFileData()
     const updatedData = parsedPreviousData
       ? [...parsedPreviousData, ...data]
       : data
     const updatedDataString = JSON.stringify(updatedData)
 
-    await file.writeString(updatedDataString)
-    await file.close()
+    await this.file.writeString(updatedDataString)
 
     return updatedData
   }
 
-  protected async readFile(filePath: string) {
-    const file = this.getReadAndAppendBinaryFile(filePath)
-
-    await file.open()
-    const { data, parsedData } = await this.getParsedFileData(file)
-    await file.close()
+  protected async readFile() {
+    const { data, parsedData } = await this.getParsedFileData()
 
     if (!data) {
       return []
@@ -38,9 +41,9 @@ export class BinaryFileManager<SchemaType> {
     return parsedData
   }
 
-  private async getParsedFileData(file: BinaryFile) {
-    const dataSize = await file.readUInt32()
-    const data = await file.readString(dataSize)
+  private async getParsedFileData() {
+    const dataSize = await this.file.readUInt32()
+    const data = await this.file.readString(dataSize)
     const parsedData: SchemaType[] = data ? JSON.parse(data) : []
     return new ParsedFileResult(data, parsedData)
   }

@@ -13,27 +13,20 @@ export class BinaryTableManager<
   constructor(
     configuration: BinaryTableConfiguration = defaultTableManagerConfiguration,
   ) {
-    super()
-    this.configuration = {
+    const binaryTableConfiguration = {
       ...defaultTableManagerConfiguration,
       ...configuration,
     }
+    super(binaryTableConfiguration.filePath)
+    this.configuration = binaryTableConfiguration
   }
 
-  async readRows() {
-    const rows = await this.readFile(this.configuration.filePath)
-    const parsedRows: SchemaType[] = rows.map(row => ({
-      ...row,
-    }))
-
-    return parsedRows
+  readRows() {
+    return this.readFile()
   }
 
   async appendRows(rows: SchemaType | SchemaType[]) {
-    const currentRows = await this.readRows()
-    const newRows = Array.isArray(rows) ? rows : [rows]
-    const updatedRows = [...currentRows, ...newRows]
-    await this.writeFile(this.configuration.filePath, updatedRows)
-    return updatedRows
+    const appendableRows = Array.isArray(rows) ? rows : [rows]
+    return this.writeToFile(appendableRows)
   }
 }

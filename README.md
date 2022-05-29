@@ -4,6 +4,12 @@ A tiny & fast database written in TypeScript.
 
 🏗️ Under construction 🚧
 
+## 📜 Requirements
+
+- Rust 1.50.0
+- wasm-bindgen 0.2.61
+- [wasmedge-core dependencies](https://github.com/second-state/wasmedge-core#for-ubuntu-2004)
+
 ## 🦔 Engine Example
 
 ```ts

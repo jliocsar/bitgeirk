@@ -1,120 +1,121 @@
 import path from 'node:path'
-import fs from 'node:fs/promises'
 
-import Piscina from 'piscina'
-import { nanoid } from 'nanoid'
-
-import { BinaryTableManager } from '~/system/binary'
+import { BinaryFileManager } from '~/system/binary-file-manager'
 
 import type {
   DatabaseEngineConfiguration,
   DatabaseEngineOptions,
   Document,
-} from './engine.types'
-import type { DatabaseSchema } from './database-schema'
-import { WriteDocumentsArgs } from './write'
+} from './database-engine.types'
 
 const defaultDatabaseEngineOptions: DatabaseEngineOptions = {
-  defaultDatabaseName: 'db',
-  defaultCollectionName: 'test',
-  defaultIdSize: 20,
+  rootPath: path.resolve(__dirname, '../..', 'db'),
+  defaultCollectionName: 'collecto',
+  defaultDatabaseName: 'databaso',
+}
+
+export class Collection {
+  constructor(
+    readonly name: string,
+    private readonly binaryFileManager: BinaryFileManager<Document>,
+  ) {}
+
+  async create(documentOrDocuments: Document | Document[]) {
+    const documents = Array.isArray(documentOrDocuments)
+      ? documentOrDocuments
+      : [documentOrDocuments]
+
+    return this.binaryFileManager.writeToFile(documents)
+  }
+
+  async findAll(): Promise<string[]> {
+    try {
+      const { data } = await this.binaryFileManager.readFile()
+      return data
+    } catch (error) {
+      console.error(error)
+      return []
+    }
+  }
 }
 
 export class DatabaseEngine {
+  private binaryFileManager: BinaryFileManager<Document> | null = null
+  private lastCollection: string
   readonly configuration: DatabaseEngineConfiguration
-  readonly pool = new Piscina({
-    filename: path.resolve(__dirname, './write/write-worker.ts'),
-    maxQueue: 'auto',
-  })
 
-  constructor(
-    readonly options: Partial<DatabaseEngineOptions> = defaultDatabaseEngineOptions,
-  ) {
+  constructor(options: DatabaseEngineOptions) {
     const engineOptions = {
       ...defaultDatabaseEngineOptions,
       ...options,
     }
     this.configuration = {
       databaseName: engineOptions.defaultDatabaseName,
-      idSize: engineOptions.defaultIdSize,
+      collectionName: engineOptions.defaultCollectionName,
+      defaultCollectionName: engineOptions.defaultCollectionName,
+      rootPath: engineOptions.rootPath,
     }
+    this.lastCollection = this.configuration.collectionName
   }
 
-  async read(
-    collectionName = this.options.defaultCollectionName,
-  ): Promise<Document[]> {
-    if (!collectionName) {
-      throw new Error('A `collectionName` is required')
-    }
-
-    const readPath = await this.getCollectionPath(collectionName)
-    const binaryTableManager = new BinaryTableManager<DatabaseSchema>({
-      filePath: readPath,
-    })
-
-    // TODO: Pass this work to a piscina too
-    const readResult = await binaryTableManager.readRows()
-
-    return readResult
-  }
-
-  async write<DataType>(
-    data: DataType | DataType[],
-    collectionName = this.options.defaultCollectionName,
-  ): Promise<Document[]> {
-    if (!collectionName) {
-      throw new Error('A `collectionName` is required')
-    }
-
-    const dataList = Array.isArray(data) ? data : [data]
-    // TODO: Validate `writeData` types before stringifying it
-    const documents: Document[] = dataList.map(writeData => ({
-      id: nanoid(this.configuration.idSize),
-      data: JSON.stringify(writeData),
-    }))
-
-    const writePath = await this.getCollectionPath(collectionName)
-    const writeTaskArgs: WriteDocumentsArgs = {
-      documents,
-      writePath,
-    }
-    const writeResult: Document[] = await this.pool.run(writeTaskArgs)
-
-    return writeResult
-  }
-
-  private async getOrCreateDatabasePath() {
-    const databasePathExists = await this.pathExists(
+  get databasePath() {
+    return path.resolve(
+      this.configuration.rootPath,
       this.configuration.databaseName,
     )
-
-    if (!databasePathExists) {
-      await fs.mkdir(this.configuration.databaseName, {
-        recursive: true,
-      })
-    }
-
-    return this.configuration.databaseName
   }
 
-  private async getCollectionPath(
-    collectionName = this.options.defaultCollectionName,
-  ) {
-    if (!collectionName) {
-      throw new Error('A `collectionName` is required')
-    }
-
-    const databasePath = await this.getOrCreateDatabasePath()
-
-    return path.resolve(databasePath, `${collectionName}.bin`)
+  async start() {
+    this.binaryFileManager = this.createBinaryFileManager(
+      this.configuration.defaultCollectionName,
+    )
+    await this.createDatabase()
+    await this.binaryFileManager.start()
   }
 
-  private async pathExists(testPath: string) {
-    try {
-      await fs.access(testPath)
-      return true
-    } catch {
-      return false
+  async stop() {
+    await this.binaryFileManager?.stop()
+  }
+
+  async switchDatabase(databaseName: string, newCollectionName?: string) {
+    this.configuration.databaseName = databaseName
+    // Resets the `binaryFileManager` since it's based on the `databasePath` too
+    await this.resetBinaryFileManager(newCollectionName)
+  }
+
+  async collection(collectionName: string) {
+    if (!this.binaryFileManager) {
+      throw new Error(
+        "'binaryFileManager' is not initialized, did you forget to call 'start()'?",
+      )
     }
+
+    if (this.lastCollection !== collectionName) {
+      await this.resetBinaryFileManager(collectionName)
+    }
+
+    return new Collection(collectionName, this.binaryFileManager)
+  }
+
+  private async createDatabase() {
+    this.binaryFileManager?.createWriteFolder(this.databasePath)
+  }
+
+  private async resetBinaryFileManager(collectionName?: string) {
+    await this.binaryFileManager?.stop()
+    this.binaryFileManager = this.createBinaryFileManager(
+      collectionName ?? this.configuration.defaultCollectionName,
+    )
+    await this.binaryFileManager.start()
+  }
+
+  private createBinaryFileManager(collectionName: string) {
+    return new BinaryFileManager<Document>(
+      this.getCollectionPath(collectionName),
+    )
+  }
+
+  private getCollectionPath(collectionName: string) {
+    return path.resolve(this.databasePath, collectionName)
   }
 }

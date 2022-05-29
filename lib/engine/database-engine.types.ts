@@ -4,12 +4,14 @@ export type Document = {
 }
 
 export type DatabaseEngineOptions = {
+  rootPath: string
   defaultDatabaseName: string
   defaultCollectionName: string
-  defaultIdSize: number
 }
-
-export type DatabaseEngineConfiguration = {
+export type DatabaseEngineConfiguration = Pick<
+  DatabaseEngineOptions,
+  'rootPath' | 'defaultCollectionName'
+> & {
   databaseName: string
-  idSize: number
+  collectionName: string
 }
